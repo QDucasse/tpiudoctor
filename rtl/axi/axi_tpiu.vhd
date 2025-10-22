@@ -49,9 +49,6 @@ begin
                 tlast_reg    <= '0';
                 dropped_reg  <= '0';
             else
-                tvalid_reg <= '0';
-                tlast_reg  <= '0';
-
                 if TREADY = '1' then
                     if IN_DATA = SYNCH_PACKET and last_synch = '0' then
                         tdata_reg  <= IN_DATA;
