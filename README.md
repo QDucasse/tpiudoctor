@@ -8,7 +8,8 @@ This repository contains the sources and scripts to setup a Vivado project that 
 
 Possible projects:
 - `tpiuvoid`: Basically does nothing, routes the signals to a blackhole inside PL. Is there to generate the corresponding `psu_init`, `pl.dtsi`, etc. for Petalinux.
-- `tpiuaxi`: Routes the TPIU `tracedata` signal into AXI-DMA, which can be read using the example program in `src/tpiuax_test.c`
+- `tpiuled`: Activates a led based on `trace_clk_out`, routes the TPIU `tracedata` into a `SYNC` packet detector, activating another led.
+- `tpiuaxi`: Routes the TPIU `tracedata` signal into AXI-DMA, which can be read using the example program in `src/tpiuax_test.c`.
 
 Simply clone the project and run Vivado (tested on 2024.2):
 
