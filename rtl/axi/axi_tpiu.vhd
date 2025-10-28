@@ -31,6 +31,7 @@ architecture Behavioral of tpiu_to_axi is
     signal tdata_reg            : std_logic_vector(31 downto 0) := (others => '0');
     signal tlast_reg            : std_logic := '0';
     signal dropped_reg          : std_logic := '0';
+    signal packet_count         : integer range 0 to 3 := 0;
 
 begin
 
@@ -43,6 +44,7 @@ begin
     begin
         if rising_edge(ACLK) then
             if ARESETN = '0' then
+                packet_count <= 0;
                 last_synch   <= '0';
                 tvalid_reg   <= '0';
                 tdata_reg    <= (others => '0');
@@ -58,8 +60,15 @@ begin
                     elsif IN_DATA /= SYNCH_PACKET and IN_DATA /= HALF_SYNCH_PACKET then
                         tdata_reg  <= IN_DATA;
                         tvalid_reg <= '1';
-                        tlast_reg  <= '0'; -- Define if you have an actual packet boundary
                         last_synch <= '0';
+
+                        if packet_count = 3 then
+                            tlast_reg  <= '1'; -- Setup TLAST after word_count packets
+                            packet_count <= 0;
+                        else
+                            tlast_reg  <= '0';
+                            packet_count <= packet_count + 1;
+                        end if;
                     else
                         dropped_reg <= '1'; -- optional debug flag
                     end if;
