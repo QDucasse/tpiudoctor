@@ -44,7 +44,7 @@ if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
 # source tpiuaxi_script.tcl
 
 
-# The design that will be created by this Tcl script contains the following 
+# The design that will be created by this Tcl script contains the following
 # module references:
 # tpiu_to_axi
 
@@ -101,7 +101,7 @@ if { ${design_name} eq "" } {
    set errMsg "Design <$design_name> already exists in your project, please set the variable <design_name> to another value."
    set nRet 1
 } elseif { [get_files -quiet ${design_name}.bd] ne "" } {
-   # USE CASES: 
+   # USE CASES:
    #    6) Current opened design, has components, but diff names, design_name exists in project.
    #    7) No opened design, design_name exists in project.
 
@@ -135,12 +135,12 @@ set bCheckIPsPassed 1
 ##################################################################
 set bCheckIPs 1
 if { $bCheckIPs == 1 } {
-   set list_check_ips "\ 
+   set list_check_ips "\
 xilinx.com:ip:zynq_ultra_ps_e:3.5\
+xilinx.com:ip:axis_data_fifo:2.0\
 xilinx.com:ip:axi_dma:7.1\
 xilinx.com:ip:smartconnect:1.0\
 xilinx.com:ip:proc_sys_reset:5.0\
-xilinx.com:ip:axis_data_fifo:2.0\
 "
 
    set list_ips_missing ""
@@ -165,7 +165,7 @@ xilinx.com:ip:axis_data_fifo:2.0\
 ##################################################################
 set bCheckModules 1
 if { $bCheckModules == 1 } {
-   set list_check_mods "\ 
+   set list_check_mods "\
 tpiu_to_axi\
 "
 
@@ -285,29 +285,6 @@ Port;FD4A0000;FD4AFFFF;0|FPD;DPDMA;FD4C0000;FD4CFFFF;0|FPD;DDR_XMPU5_CFG;FD05000
     CONFIG.PSU__USE__S_AXI_GP2 {1} \
   ] $zynq_ultra_ps_pl
 
-
-  # Create instance: axi_dma_0, and set properties
-  set axi_dma_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:7.1 axi_dma_0 ]
-  set_property -dict [list \
-    CONFIG.c_include_mm2s {0} \
-    CONFIG.c_include_sg {0} \
-    CONFIG.c_sg_length_width {26} \
-  ] $axi_dma_0
-
-
-  # Create instance: axi_lite_cfg_mm2s, and set properties
-  set axi_lite_cfg_mm2s [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 axi_lite_cfg_mm2s ]
-  set_property CONFIG.NUM_SI {1} $axi_lite_cfg_mm2s
-
-
-  # Create instance: proc_sys_reset_axi, and set properties
-  set proc_sys_reset_axi [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_axi ]
-
-  # Create instance: axi_lite_cfg_s2mm, and set properties
-  set axi_lite_cfg_s2mm [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 axi_lite_cfg_s2mm ]
-  set_property CONFIG.NUM_SI {1} $axi_lite_cfg_s2mm
-
-
   # Create instance: tpiu_to_axi, and set properties
   set block_name tpiu_to_axi
   set block_cell_name tpiu_to_axi
@@ -318,57 +295,80 @@ Port;FD4A0000;FD4AFFFF;0|FPD;DPDMA;FD4C0000;FD4CFFFF;0|FPD;DDR_XMPU5_CFG;FD05000
      catch {common::send_gid_msg -ssname BD::TCL -id 2096 -severity "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
      return 1
    }
-  
-  # Create instance: proc_sys_reset_tpiu, and set properties
-  set proc_sys_reset_tpiu [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 proc_sys_reset_tpiu ]
 
   # Create instance: axis_data_fifo, and set properties
   set axis_data_fifo [ create_bd_cell -type ip -vlnv xilinx.com:ip:axis_data_fifo:2.0 axis_data_fifo ]
   set_property CONFIG.IS_ACLK_ASYNC {1} $axis_data_fifo
 
 
+  # Create instance: axi_dma_0, and set properties
+  set axi_dma_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_dma:7.1 axi_dma_0 ]
+  set_property -dict [list \
+    CONFIG.c_include_mm2s {0} \
+    CONFIG.c_include_sg {0} \
+    CONFIG.c_sg_length_width {26} \
+  ] $axi_dma_0
+
+
+  # Create instance: axi_smc, and set properties
+  set axi_smc [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 axi_smc ]
+  set_property CONFIG.NUM_SI {1} $axi_smc
+
+
+  # Create instance: rst_zynq_ultra_ps_pl_100M, and set properties
+  set rst_zynq_ultra_ps_pl_100M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_zynq_ultra_ps_pl_100M ]
+
+  # Create instance: axi_smc_1, and set properties
+  set axi_smc_1 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 axi_smc_1 ]
+  set_property CONFIG.NUM_SI {1} $axi_smc_1
+
+
+  # Create instance: rst_zynq_ultra_ps_pl_250M, and set properties
+  set rst_zynq_ultra_ps_pl_250M [ create_bd_cell -type ip -vlnv xilinx.com:ip:proc_sys_reset:5.0 rst_zynq_ultra_ps_pl_250M ]
+
   # Create interface connections
-  connect_bd_intf_net -intf_net axi_dma_0_M_AXI_S2MM [get_bd_intf_pins axi_dma_0/M_AXI_S2MM] [get_bd_intf_pins axi_lite_cfg_s2mm/S00_AXI]
-  connect_bd_intf_net -intf_net axi_smc_1_M00_AXI [get_bd_intf_pins axi_lite_cfg_s2mm/M00_AXI] [get_bd_intf_pins zynq_ultra_ps_pl/S_AXI_HP0_FPD]
-  connect_bd_intf_net -intf_net axi_smc_M00_AXI [get_bd_intf_pins axi_lite_cfg_mm2s/M00_AXI] [get_bd_intf_pins axi_dma_0/S_AXI_LITE]
-  connect_bd_intf_net -intf_net axis_data_fifo_0_M_AXIS [get_bd_intf_pins axis_data_fifo/M_AXIS] [get_bd_intf_pins axi_dma_0/S_AXIS_S2MM]
+  connect_bd_intf_net -intf_net axi_dma_0_M_AXI_S2MM [get_bd_intf_pins axi_dma_0/M_AXI_S2MM] [get_bd_intf_pins axi_smc/S00_AXI]
+  connect_bd_intf_net -intf_net axi_smc_1_M00_AXI [get_bd_intf_pins axi_smc_1/M00_AXI] [get_bd_intf_pins axi_dma_0/S_AXI_LITE]
+  connect_bd_intf_net -intf_net axi_smc_M00_AXI [get_bd_intf_pins axi_smc/M00_AXI] [get_bd_intf_pins zynq_ultra_ps_pl/S_AXI_HP0_FPD]
+  connect_bd_intf_net -intf_net axis_data_fifo_M_AXIS [get_bd_intf_pins axis_data_fifo/M_AXIS] [get_bd_intf_pins axi_dma_0/S_AXIS_S2MM]
   connect_bd_intf_net -intf_net tpiu_to_axi_0_interface_axis [get_bd_intf_pins tpiu_to_axi/interface_axis] [get_bd_intf_pins axis_data_fifo/S_AXIS]
-  connect_bd_intf_net -intf_net zynq_ultra_ps_e_0_M_AXI_HPM0_LPD [get_bd_intf_pins zynq_ultra_ps_pl/M_AXI_HPM0_LPD] [get_bd_intf_pins axi_lite_cfg_mm2s/S00_AXI]
+  connect_bd_intf_net -intf_net zynq_ultra_ps_pl_M_AXI_HPM0_LPD [get_bd_intf_pins zynq_ultra_ps_pl/M_AXI_HPM0_LPD] [get_bd_intf_pins axi_smc_1/S00_AXI]
 
   # Create port connections
   connect_bd_net -net axi_dma_0_s2mm_introut  [get_bd_pins axi_dma_0/s2mm_introut] \
   [get_bd_pins zynq_ultra_ps_pl/pl_ps_irq0]
-  connect_bd_net -net proc_sys_reset_0_peripheral_aresetn  [get_bd_pins proc_sys_reset_tpiu/peripheral_aresetn] \
-  [get_bd_pins tpiu_to_axi/ARESETN] \
-  [get_bd_pins axis_data_fifo/s_axis_aresetn]
-  connect_bd_net -net rst_ps8_0_124M_peripheral_aresetn  [get_bd_pins proc_sys_reset_axi/peripheral_aresetn] \
-  [get_bd_pins axi_dma_0/axi_resetn] \
-  [get_bd_pins axi_lite_cfg_mm2s/aresetn] \
-  [get_bd_pins axi_lite_cfg_s2mm/aresetn]
-  connect_bd_net -net zynq_ultra_ps_e_0_pl_clk0  [get_bd_pins zynq_ultra_ps_pl/pl_clk0] \
-  [get_bd_pins zynq_ultra_ps_pl/pl_ps_trace_clk]
-  connect_bd_net -net zynq_ultra_ps_e_0_pl_clk1  [get_bd_pins zynq_ultra_ps_pl/pl_clk1] \
-  [get_bd_pins zynq_ultra_ps_pl/maxihpm0_lpd_aclk] \
-  [get_bd_pins zynq_ultra_ps_pl/saxihp0_fpd_aclk] \
-  [get_bd_pins axi_lite_cfg_mm2s/aclk] \
-  [get_bd_pins axi_dma_0/s_axi_lite_aclk] \
-  [get_bd_pins proc_sys_reset_axi/slowest_sync_clk] \
-  [get_bd_pins axi_lite_cfg_s2mm/aclk] \
-  [get_bd_pins axi_dma_0/m_axi_s2mm_aclk] \
-  [get_bd_pins axis_data_fifo/m_axis_aclk]
+  connect_bd_net -net rst_zynq_ultra_ps_pl_250M_peripheral_aresetn  [get_bd_pins rst_zynq_ultra_ps_pl_250M/peripheral_aresetn] \
+  [get_bd_pins axis_data_fifo/s_axis_aresetn] \
+  [get_bd_pins tpiu_to_axi/ARESETN]
+  connect_bd_net -net rst_zynq_ultra_ps_pl_25M_peripheral_aresetn  [get_bd_pins rst_zynq_ultra_ps_pl_100M/peripheral_aresetn] \
+  [get_bd_pins axi_smc/aresetn] \
+  [get_bd_pins axi_smc_1/aresetn] \
+  [get_bd_pins axi_dma_0/axi_resetn]
   connect_bd_net -net zynq_ultra_ps_e_0_pl_resetn0  [get_bd_pins zynq_ultra_ps_pl/pl_resetn0] \
-  [get_bd_pins proc_sys_reset_axi/ext_reset_in] \
-  [get_bd_pins proc_sys_reset_tpiu/ext_reset_in]
+  [get_bd_pins rst_zynq_ultra_ps_pl_250M/ext_reset_in]
   connect_bd_net -net zynq_ultra_ps_e_0_ps_pl_tracedata  [get_bd_pins zynq_ultra_ps_pl/ps_pl_tracedata] \
   [get_bd_pins tpiu_to_axi/IN_DATA]
   connect_bd_net -net zynq_ultra_ps_e_0_trace_clk_out  [get_bd_pins zynq_ultra_ps_pl/trace_clk_out] \
   [get_bd_pins tpiu_to_axi/ACLK] \
-  [get_bd_pins proc_sys_reset_tpiu/slowest_sync_clk] \
-  [get_bd_pins axis_data_fifo/s_axis_aclk]
+  [get_bd_pins axis_data_fifo/s_axis_aclk] \
+  [get_bd_pins rst_zynq_ultra_ps_pl_250M/slowest_sync_clk]
+  connect_bd_net -net zynq_ultra_ps_pl_pl_clk0  [get_bd_pins zynq_ultra_ps_pl/pl_clk0] \
+  [get_bd_pins zynq_ultra_ps_pl/pl_ps_trace_clk]
+  connect_bd_net -net zynq_ultra_ps_pl_pl_clk1  [get_bd_pins zynq_ultra_ps_pl/pl_clk1] \
+  [get_bd_pins zynq_ultra_ps_pl/saxihp0_fpd_aclk] \
+  [get_bd_pins rst_zynq_ultra_ps_pl_100M/slowest_sync_clk] \
+  [get_bd_pins axi_smc_1/aclk] \
+  [get_bd_pins axi_dma_0/m_axi_s2mm_aclk] \
+  [get_bd_pins axi_dma_0/s_axi_lite_aclk] \
+  [get_bd_pins axis_data_fifo/m_axis_aclk] \
+  [get_bd_pins axi_smc/aclk] \
+  [get_bd_pins zynq_ultra_ps_pl/maxihpm0_lpd_aclk]
+  connect_bd_net -net zynq_ultra_ps_pl_pl_resetn1  [get_bd_pins zynq_ultra_ps_pl/pl_resetn1] \
+  [get_bd_pins rst_zynq_ultra_ps_pl_100M/ext_reset_in]
 
   # Create address segments
   assign_bd_address -offset 0x80000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces zynq_ultra_ps_pl/Data] [get_bd_addr_segs axi_dma_0/S_AXI_LITE/Reg] -force
-  assign_bd_address -offset 0x00000000 -range 0x80000000 -with_name SEG_zynq_ultra_ps_e_0_HP0_DDR_LOW -target_address_space [get_bd_addr_spaces axi_dma_0/Data_S2MM] [get_bd_addr_segs zynq_ultra_ps_pl/SAXIGP2/HP0_DDR_LOW] -force
+  assign_bd_address -offset 0x00000000 -range 0x80000000 -target_address_space [get_bd_addr_spaces axi_dma_0/Data_S2MM] [get_bd_addr_segs zynq_ultra_ps_pl/SAXIGP2/HP0_DDR_LOW] -force
 
   # Exclude Address Segments
   exclude_bd_addr_seg -offset 0xFF000000 -range 0x01000000 -target_address_space [get_bd_addr_spaces axi_dma_0/Data_S2MM] [get_bd_addr_segs zynq_ultra_ps_pl/SAXIGP2/HP0_LPS_OCM]

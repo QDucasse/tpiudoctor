@@ -40,7 +40,9 @@
 #include <sys/mman.h>
 
 #define DMA_BASE  0x80000000
+#define DMA_SIZE  0x10000
 #define S2MM_BASE 0x68000000
+#define S2MM_SIZE 0x04000000
 
 #define S2MM_CONTROL_REGISTER       0x30
 #define S2MM_STATUS_REGISTER        0x34
@@ -71,7 +73,8 @@
 #define ENABLE_ERR_IRQ              0x00004000
 #define ENABLE_ALL_IRQ              0x00007000
 
-#define TRANSFER_LENGTH             16
+#define CHUNK_SIZE                 32 // Must match AXI-DMA value
+#define TRANSFER_SIZE              0x000004000
 
 unsigned int write_dma(unsigned int *virtual_addr, int offset, unsigned int value)
 {
@@ -178,21 +181,31 @@ void print_mem(void *virtual_address, int byte_count)
 
 int main()
 {
-    printf("Hello World! - Running TPIU AXI-DMA transfer test application.\n");
+    printf("Hello World! - Running TPIU AXI test application.\n");
 
-    printf("Opening a character device file of the ZynqMP's DDR memeory...\n");
+    printf("Opening a character device file of the ZynqMP's DDR memory...\n");
     int ddr_memory = open("/dev/mem", O_RDWR | O_SYNC);
 
     printf("Memory map the address of the DMA AXI IP via its AXI lite control interface register block.\n");
-    unsigned int *dma_virtual_addr = mmap(NULL, 0x10000, PROT_READ | PROT_WRITE, MAP_SHARED, ddr_memory, DMA_BASE);
+    unsigned int *dma_virtual_addr = mmap(NULL, DMA_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, ddr_memory, DMA_BASE);
 
-    printf("Memory map the S2MM destination address register block.\n");
-    unsigned int *virtual_dst_addr = mmap(NULL, 0x4000000, PROT_READ | PROT_WRITE, MAP_SHARED, ddr_memory, S2MM_BASE);
 
-    printf("Clearing the destination register block...\n");
-    memset(virtual_dst_addr, 0, 32);
+    printf("Opening tpiu-doctor (udmabuf instance) character device for S2MM destination...\n");
+    int dma_buf_fd = open("/dev/tpiu-doctor0", O_RDWR); // use the device name exported by u-dma-buf
+    if(dma_buf_fd < 0) {
+        perror("Failed to open tpiu-doctor0 device");
+        return -1;
+    }
 
-    printf("Destination memory block data: ");
+    unsigned int *virtual_dst_addr = mmap(NULL, S2MM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, dma_buf_fd, 0);
+    if(virtual_dst_addr == MAP_FAILED) {
+        perror("Failed to mmap tpiu-doctor0 memory");
+        return -1;
+    }
+
+    // Clearing buffer via the u-dma-buf mapping
+    memset(virtual_dst_addr, 0, S2MM_SIZE);
+    printf("Destination memory block data (first 8 bytes): ");
     print_mem(virtual_dst_addr, 32);
 
     printf("Reset the DMA.\n");
@@ -205,29 +218,53 @@ int main()
 
     printf("Enable all interrupts.\n");
     write_dma(dma_virtual_addr, S2MM_CONTROL_REGISTER, ENABLE_ALL_IRQ);
+    unsigned int control = read_dma(dma_virtual_addr, S2MM_CONTROL_REGISTER);
+    printf("Stream to memory-mapped control (0x%08x@0x%02x)...\n", control, S2MM_CONTROL_REGISTER);
     dma_s2mm_status(dma_virtual_addr);
 
     printf("Writing the destination address for the data from S2MM in DDR: 0x%x\n", S2MM_BASE);
     write_dma(dma_virtual_addr, S2MM_DST_ADDRESS_REGISTER, S2MM_BASE);
     dma_s2mm_status(dma_virtual_addr);
 
-    printf("Run the S2MM channel.\n");
+    printf("Start running.\n");
     write_dma(dma_virtual_addr, S2MM_CONTROL_REGISTER, RUN_DMA);
+    control = read_dma(dma_virtual_addr, S2MM_CONTROL_REGISTER);
+    printf("Stream to memory-mapped control (0x%08x@0x%02x)...\n", control, S2MM_CONTROL_REGISTER);
     dma_s2mm_status(dma_virtual_addr);
 
-    printf("Writing S2MM transfer length of %d bytes...\n", TRANSFER_LENGTH);
-    write_dma(dma_virtual_addr, S2MM_BUFF_LENGTH_REGISTER, TRANSFER_LENGTH);
+    printf("Writing S2MM chunk size of 0x%x bytes...\n", CHUNK_SIZE);
+    write_dma(dma_virtual_addr, S2MM_BUFF_LENGTH_REGISTER, CHUNK_SIZE);
     dma_s2mm_status(dma_virtual_addr);
 
-    printf("Waiting for S2MM sychronization...\n");
-    dma_s2mm_sync(dma_virtual_addr);
+    unsigned int offset = 0;
+    unsigned int dst_addr = S2MM_BASE;
 
+    while(offset <= 0x000004000) {
+
+        printf("Waiting for chunk transfer...\n");
+        dma_s2mm_sync(dma_virtual_addr);
+
+
+        // Move to next chunk (wrap around at 64 MB)
+        offset += CHUNK_SIZE;
+        if (offset >= S2MM_SIZE) offset = 0;
+        dst_addr = S2MM_BASE + offset;
+
+        printf("Rewriting destination address (0x%x) and chunk size.\n", dst_addr);
+        write_dma(dma_virtual_addr, S2MM_DST_ADDRESS_REGISTER, dst_addr);
+        write_dma(dma_virtual_addr, S2MM_BUFF_LENGTH_REGISTER, CHUNK_SIZE);
+        dma_s2mm_status(dma_virtual_addr);
+
+
+        printf("Restarting DMA...\n");
+        write_dma(dma_virtual_addr, S2MM_CONTROL_REGISTER, RUN_DMA | ENABLE_ALL_IRQ);
+
+    }
+
+    printf("Wrote 0x%x bytes.\n", offset);
+
+    print_mem(virtual_dst_addr, TRANSFER_SIZE);
     dma_s2mm_status(dma_virtual_addr);
-
-    printf("Destination memory block: ");
-    print_mem(virtual_dst_addr, 32);
-
-    printf("\n");
 
     return 0;
 }
