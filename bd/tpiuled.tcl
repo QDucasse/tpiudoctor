@@ -576,7 +576,7 @@ Port;FD4A0000;FD4AFFFF;1|FPD;DPDMA;FD4C0000;FD4CFFFF;1|FPD;DDR_XMPU5_CFG;FD05000
   [get_bd_pins xlslice_1/Din]
   connect_bd_net -net proc_sys_reset_0_peripheral_aresetn  [get_bd_pins proc_sys_reset_0/peripheral_aresetn] \
   [get_bd_pins tpiu_sync_detect_0/ARESETN]
-  connect_bd_net -net tpiu_sync_detect_0_ce_enable_out  [get_bd_pins tpiu_sync_detect_0/ce_enable_out] \
+  connect_bd_net -net tpiu_sync_detect_0_ce_out  [get_bd_pins tpiu_sync_detect_0/ce_out] \
   [get_bd_pins c_counter_binary_1/CE]
   connect_bd_net -net xlslice_0_Dout  [get_bd_pins xlslice_0/Dout] \
   [get_bd_ports Dout_0]
